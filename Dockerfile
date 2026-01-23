@@ -1,5 +1,5 @@
-# Use an official lightweight Python image
-FROM python:3.12-slim
+# Use an official lightweight Python image (Python 3.11 for TF 2.15 compatibility)
+FROM python:3.11-slim
 
 # Install system dependencies for OpenCV and TensorFlow
 RUN apt-get update && apt-get install -y \
