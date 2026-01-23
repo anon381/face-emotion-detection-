@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Face Emotion Detector | AI Vision</title>
+    <meta name="description" content="Real-time face emotion detection powered by deep learning. Detects Happy, Sad, Angry, Surprised, and more from a live webcam feed." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <!-- Animated background blobs -->
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-icon">🧠</div>
+            <div>
+                <h1 class="header-title">Face Emotion Detector</h1>
+                <p class="header-subtitle">Real-time AI · FER-2013 Model · OpenCV</p>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tabs" role="tablist">
+            <button class="tab active" id="tab-webcam" onclick="switchTab('webcam')" role="tab" aria-selected="true">
+                <span>📷</span> Live Webcam
+            </button>
+            <button class="tab" id="tab-upload" onclick="switchTab('upload')" role="tab" aria-selected="false">
+                <span>🖼️</span> Upload Image
+            </button>
+        </nav>
+
+        <!-- Webcam Panel -->
+        <section id="panel-webcam" class="panel active">
+            <div class="main-grid">
+                <div class="card video-card">
+                    <div class="card-header">
+                        <span class="live-badge">● LIVE</span>
+                        <span class="card-title">Webcam Stream</span>
+                        <button class="btn-icon" id="screenshotBtn" title="Take Screenshot" onclick="takeScreenshot()">📸</button>
+                    </div>
+                    <div class="video-wrapper">
+                        <video id="webcam" autoplay playsinline muted></video>
+                        <canvas id="overlay"></canvas>
+                        <canvas id="hiddenCanvas" style="display:none"></canvas>
+                        <div class="video-overlay-msg" id="cameraMsg">Camera permission required</div>
+                    </div>
+                    <div class="video-footer">
+                        <span class="hint">👆 Allow camera access to start detection</span>
+                    </div>
+                </div>
+
+                <aside class="sidebar">
+                    <!-- Emotion Legend -->
+                    <div class="card legend-card">
+                        <h2 class="card-title">Emotion Classes</h2>
+                        <ul class="emotion-list">
+                            <li><span class="em-icon angry">😠</span><span>Angry</span><span class="em-dot angry-dot"></span></li>
+                            <li><span class="em-icon disgust">🤢</span><span>Disgust</span><span class="em-dot disgust-dot"></span></li>
+                            <li><span class="em-icon fear">😨</span><span>Fear</span><span class="em-dot fear-dot"></span></li>
+                            <li><span class="em-icon happy">😄</span><span>Happy</span><span class="em-dot happy-dot"></span></li>
+                            <li><span class="em-icon sad">😢</span><span>Sad</span><span class="em-dot sad-dot"></span></li>
+                            <li><span class="em-icon surprise">😲</span><span>Surprise</span><span class="em-dot surprise-dot"></span></li>
+                            <li><span class="em-icon neutral">😐</span><span>Neutral</span><span class="em-dot neutral-dot"></span></li>
+                        </ul>
+                    </div>
+
+                    <!-- Live Log -->
+                    <div class="card log-card">
+                        <div class="card-header">
+                            <h2 class="card-title">Detection Log</h2>
+                            <button class="btn-clear" onclick="clearLog()">Clear</button>
+                        </div>
+                        <ul id="emotionLog" class="log-list">
+                            <li class="log-placeholder">Waiting for detections…</li>
+                        </ul>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <!-- Upload Panel -->
+        <section id="panel-upload" class="panel">
+            <div class="main-grid">
+                <div class="card upload-card">
+                    <h2 class="card-title">Upload an Image</h2>
+                    <div class="dropzone" id="dropzone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('imageInput').click()">
+                        <div class="dropzone-icon">🖼️</div>
+                        <p class="dropzone-text">Drag & drop or <strong>click to browse</strong></p>
+                        <p class="dropzone-hint">PNG, JPG, WEBP supported</p>
+                    </div>
+                    <input type="file" id="imageInput" accept="image/*" hidden onchange="handleFileSelect(event)" />
+                    <div id="uploadResult" class="upload-result hidden">
+                        <img id="resultImage" src="" alt="Processed result" />
+                        <div id="resultDetections" class="detections-grid"></div>
+                    </div>
+                    <div id="uploadLoader" class="loader hidden">
+                        <div class="spinner"></div><span>Analyzing…</span>
+                    </div>
+                </div>
+
+                <aside class="sidebar">
+                    <div class="card info-card">
+                        <h2 class="card-title">How It Works</h2>
+                        <ol class="how-list">
+                            <li>Upload any photo with faces</li>
+                            <li>OpenCV detects all faces</li>
+                            <li>Each face is cropped to 48×48</li>
+                            <li>The FER-2013 CNN predicts emotion</li>
+                            <li>Results overlay on the image</li>
+                        </ol>
+                    </div>
+                    <div class="card stat-card">
+                        <h2 class="card-title">Model Info</h2>
+                        <div class="stat-grid">
+                            <div class="stat"><span class="stat-val">7</span><span class="stat-label">Emotion Classes</span></div>
+                            <div class="stat"><span class="stat-val">48px</span><span class="stat-label">Input Size</span></div>
+                            <div class="stat"><span class="stat-val">FER-2013</span><span class="stat-label">Dataset</span></div>
+                            <div class="stat"><span class="stat-val">CNN</span><span class="stat-label">Architecture</span></div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+    </div>
+
+    <!-- Screenshot Canvas (hidden) -->
+    <canvas id="screenshotCanvas" style="display:none"></canvas>
+
+    <script>
+    // ─── Tab Switching ───────────────────────────────────────
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(el => {el.classList.remove('active'); el.setAttribute('aria-selected','false');});
+        document.querySelectorAll('.panel').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.add('active');
+        document.getElementById('tab-' + tab).setAttribute('aria-selected','true');
+        document.getElementById('panel-' + tab).classList.add('active');
+    }
+
+    // ─── Camera & Detection Settings ────────────────────────
+    let stream = null;
+    const video = document.getElementById('webcam');
+    const overlay = document.getElementById('overlay');
+    const hiddenCanvas = document.getElementById('hiddenCanvas');
+    const cameraMsg = document.getElementById('cameraMsg');
+    const ctx = overlay.getContext('2d');
+    const hCtx = hiddenCanvas.getContext('2d');
+    
+    let isProcessing = false;
+    let detectionInterval = null;
+
+    async function initCamera() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 640, height: 480, facingMode: "user" } 
+            });
+            video.srcObject = stream;
+            cameraMsg.style.display = 'none';
+            
+            video.onloadedmetadata = () => {
+                overlay.width = video.videoWidth;
+                overlay.height = video.videoHeight;
+                hiddenCanvas.width = video.videoWidth;
+                hiddenCanvas.height = video.videoHeight;
+                startDetectionLoop();
+            };
+        } catch (err) {
+            console.error("Camera error:", err);
+            cameraMsg.textContent = "⚠️ Camera blocked or not found";
+        }
+    }
+
+    function startDetectionLoop() {
+        if (detectionInterval) clearInterval(detectionInterval);
+        // Process at ~5 FPS for smoothness vs server load balance
+        detectionInterval = setInterval(processFrame, 200);
+    }
+
+    async function processFrame() {
+        if (isProcessing) return;
+        isProcessing = true;
+
+        // Draw current video frame to hidden canvas
+        hCtx.drawImage(video, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+        const dataUrl = hiddenCanvas.toDataURL('image/jpeg', 0.7);
+
+        try {
+            const response = await fetch('/process_frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: dataUrl })
+            });
+            const data = await response.json();
+            
+            drawDetections(data.detections || []);
+        } catch (err) {
+            console.error("Processing error:", err);
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    function drawDetections(detections) {
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+        
+        detections.forEach(det => {
+            const [x, y, w, h] = det.box;
+            const color = det.color || '#7c5cfc';
+            
+            // Draw Box
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x, y, w, h);
+            
+            // Draw Label
+            const label = `${det.emoji} ${det.emotion} ${det.confidence}%`;
+            ctx.font = 'bold 16px Inter, sans-serif';
+            const textWidth = ctx.measureText(label).width;
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y - 30, textWidth + 10, 30);
+            
+            ctx.fillStyle = '#fff';
+            ctx.fillText(label, x + 5, y - 8);
+        });
+    }
+
+    // Initialize on load
+    window.addEventListener('load', initCamera);
+
+    // ─── Screenshot ─────────────────────────────────────────
+    function takeScreenshot() {
+        const canvas = document.getElementById('screenshotCanvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const sCtx = canvas.getContext('2d');
+        
+        // Draw video
+        sCtx.drawImage(video, 0, 0);
+        // Draw overlay
+        sCtx.drawImage(overlay, 0, 0);
+        
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = `emotion_capture_${Date.now()}.png`;
+        link.click();
+        showFlash('Screenshot saved! 📸');
+    }
+
+    function showFlash(msg) {
+        const el = document.createElement('div');
+        el.className = 'flash-msg';
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.classList.add('visible'), 10);
+        setTimeout(() => { el.classList.remove('visible'); setTimeout(() => el.remove(), 400); }, 2500);
+    }
+
+    // ─── Emotion Log ─────────────────────────────────────────
+    const EMOTION_COLORS_CSS = {
+        'Happy': '#00c864', 'Sad': '#e06400', 'Angry': '#dc1c1c',
+        'Disgust': '#1e8c1e', 'Fear': '#800080', 'Surprise': '#ff8c00', 'Neutral': '#888'
+    };
+    let logEntries = [];
+
+    function fetchLog() {
+        fetch('/emotion_log')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.length) return;
+                const ul = document.getElementById('emotionLog');
+                const hadPlaceholder = ul.querySelector('.log-placeholder');
+                if (hadPlaceholder) ul.innerHTML = '';
+
+                // Only add new entries
+                const existing = logEntries.map(e => e.time + e.emotion);
+                const newEntries = data.filter(d => !existing.includes(d.time + d.emotion));
+                newEntries.forEach(entry => {
+                    logEntries.unshift(entry);
+                    const li = document.createElement('li');
+                    li.className = 'log-entry fade-in';
+                    const color = EMOTION_COLORS_CSS[entry.emotion] || '#fff';
+                    li.innerHTML = `
+                        <span class="log-emoji">${entry.emoji}</span>
+                        <span class="log-emotion" style="color:${color}">${entry.emotion}</span>
+                        <span class="log-conf">${entry.confidence}%</span>
+                        <span class="log-time">${entry.time}</span>`;
+                    ul.prepend(li);
+                });
+                // Trim
+                while (ul.children.length > 15) ul.removeChild(ul.lastChild);
+                if (logEntries.length > 50) logEntries = logEntries.slice(0, 50);
+            });
+    }
+    function clearLog() {
+        logEntries = [];
+        const ul = document.getElementById('emotionLog');
+        ul.innerHTML = '<li class="log-placeholder">Waiting for detections…</li>';
+    }
+    setInterval(fetchLog, 1500);
+
+    // ─── Image Upload ────────────────────────────────────────
+    function handleDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('drag-over'); }
+    function handleDragLeave(e) { document.getElementById('dropzone').classList.remove('drag-over'); }
+    function handleDrop(e) {
+        e.preventDefault();
+        document.getElementById('dropzone').classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) processImage(file);
+    }
+    function handleFileSelect(e) { const file = e.target.files[0]; if (file) processImage(file); }
+
+    function processImage(file) {
+        const loader = document.getElementById('uploadLoader');
+        const result = document.getElementById('uploadResult');
+        result.classList.add('hidden');
+        loader.classList.remove('hidden');
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        fetch('/upload_image', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                loader.classList.add('hidden');
+                if (data.error) { showFlash('⚠️ ' + data.error); return; }
+                document.getElementById('resultImage').src = data.image;
+                const dGrid = document.getElementById('resultDetections');
+                dGrid.innerHTML = '';
+                if (data.detections.length === 0) {
+                    dGrid.innerHTML = '<p class="no-face">No faces detected.</p>';
+                } else {
+                    data.detections.forEach(d => {
+                        const card = document.createElement('div');
+                        card.className = 'detection-chip';
+                        const color = EMOTION_COLORS_CSS[d.emotion] || '#fff';
+                        card.innerHTML = `<span>${d.emoji}</span><span style="color:${color}">${d.emotion}</span><span class="chip-conf">${d.confidence}%</span>`;
+                        dGrid.appendChild(card);
+                    });
+                }
+                result.classList.remove('hidden');
+            })
+            .catch(() => { loader.classList.add('hidden'); showFlash('⚠️ Upload failed.'); });
+    }
+    </script>
+</body>
+</html>

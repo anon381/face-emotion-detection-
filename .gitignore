@@ -1,0 +1,9 @@
+venv/
+*.pyc
+__pycache__/
+.DS_Store
+.env
+model/emotion_model.h5
+haarcascade_frontalface_default.xml
+/tmp/
+*.log
